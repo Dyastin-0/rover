@@ -205,7 +205,7 @@
     <div class="row">
       <h4>Set delay</h4>
       <input id="delay-input" class="input" type="text">
-      <button class="button" onclick="setDistance()">Set</button>
+      <button class="button" onclick="setDelay()">Set</button>
     </div>
   </div>
   <script>
@@ -255,7 +255,6 @@
     const distanceText = document.getElementById('distance-input');
     const delayText = document.getElementById('delay-input');
     function setDistance() {
-      console.log(distanceText.value)
       fetch('/setDistance' , {
         method: 'POST',
         headers: {
@@ -276,16 +275,17 @@
     }
     const fetchData = async () => {
       fetch('/get/distance')
+      .then(response => response.text())
       .then((result) => {
-        console.log("distance " + result);
         distanceText.value = result;
       });
       fetch('/get/delay')
+      .then(response => response.text())
       .then((result) => {
-        console.log("delay " + result);
         delayText.value = result;
       });
-    } 
+    }
+    fetchData();
   </script>
 </body>
 </html>
