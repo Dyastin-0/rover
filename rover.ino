@@ -99,10 +99,6 @@ void handleAutomaticMode() {
     Serial.printf("[Rover] Distance: %d\n", avoidDistance);
     forward(0, 0);
     delay(actionDelay);
-    backward(1, 1);
-    delay(actionDelay);
-    backward(0, 0);
-    delay(actionDelay);
     if (leftDistance > rightDistance) {
       forward(0, 1);
       backward(1, 0);
