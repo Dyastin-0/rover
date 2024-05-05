@@ -71,7 +71,6 @@ void setup(void) {
   server.on("/controlForward", handleForward);
   server.on("/controlBackward", handleBackward);
   server.on("/controlSpeed", handleSpeed);
-  server.on("/controlShift", handleShift);
   server.on("/controlMode", handleMode);
   server.on("/setDistance", handleDistance);
   server.on("/setDelay", handleDelay);
@@ -91,21 +90,28 @@ int avoidDistance = 30;
 int actionDelay = 400;
 void handleAutomaticMode() {
   float midDistance = measureMidDistance();
+  float leftDistance = measureLeftDistance();
+  float rightDistance = measureRightDistance();
+  Serial.printf("[Rover] Left: %f\n", leftDistance);
+  Serial.printf("[Rover] Right: %f\n", rightDistance);
   Serial.printf("[Rover] Mid: %f\n", midDistance);
   if (midDistance < avoidDistance) {
     Serial.printf("[Rover] Distance: %d\n", avoidDistance);
-    float leftDistance = measureLeftDistance();
-    float rightDistance = measureRightDistance();
-    Serial.printf("[Rover] Left: %f\n", leftDistance);
-    Serial.printf("[Rover] Right: %f\n", rightDistance);
     forward(0, 0);
     delay(actionDelay);
     backward(1, 1);
     delay(actionDelay);
     backward(0, 0);
     delay(actionDelay);
-    leftDistance > rightDistance ? forward(0, 1) : forward(1, 0);
+    if (leftDistance > rightDistance) {
+      forward(0, 1);
+      backward(1, 0);
+    } else {
+      forward(1, 0);
+      backward(0, 1);
+    }
     delay(actionDelay);
+    backward(0, 0);
     forward(0, 0);
     delay(actionDelay);
   }
@@ -147,31 +153,27 @@ float measureRightDistance() {
 
 void handleControls() {
   if (leftControlVal) {
-    shift ? backward(0, 1) : forward(0, 1);
+    forward(0 , 1);
+    backward(1, 0);
   } else {
     if (!forwardControlVal && !rightControlVal) {
-      shift ? backward(0, 0) : forward(0, 0);
+      forward(0, 0);
+      backward(0, 0);
     }
   }
 
   if (rightControlVal) {
-    shift ? backward(1, 0) : forward(1, 0);
+    forward(1, 0);
+    backward(0, 1);
   } else {
     if (!forwardControlVal && !leftControlVal) {
-      shift ? backward(0, 0) : forward(0, 0);
+      forward(0, 0);
+      backward(0, 0);
     }
   }
 
   if (forwardControlVal) {
-    if (rightControlVal || leftControlVal) {
-      if (shift) {
-        leftControlVal ? backward(1, 0) : backward(0, 1);
-      } else {
-        leftControlVal ? forward(1, 0) : forward(0, 1);
-      }
-    } else {
-      forward(1, 1);
-    }
+    forward(1, 1);
   } else {
     if (!leftControlVal && !rightControlVal) {
       forward(0, 0);
@@ -179,11 +181,7 @@ void handleControls() {
   }
   
   if (backwardControlVal) {
-    if (rightControlVal || leftControlVal) {
-      shift && leftControlVal ? backward(1, 0) : backward(0, 1);
-    } else {
-      backward(1, 1);
-    }
+    backward(1, 1);
   } else {
     if (!leftControlVal && !rightControlVal) {
       backward(0, 0);
@@ -235,13 +233,6 @@ void handleSpeed() {
   int currentSpeed = speedPercent * wheelSpeed;
   Serial.printf("[Rover] Speed set to: %d\n", currentSpeed);
   analogWrite(wheelSpeedSignal, currentSpeed);
-  server.send(200, "text/plain", "Success");
-}
-
-void handleShift() {
-  byte shiftControl = (byte)server.arg("plain").toInt();
-  Serial.printf("[Rover] Shift: %d\n", shiftControl);
-  shift = shiftControl;
   server.send(200, "text/plain", "Success");
 }
 

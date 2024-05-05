@@ -192,10 +192,6 @@ const char controlPage[] PROGMEM = R"=====(
       <h4 class="label">Speed</h4>
       <input type="range" min="1" max="10" value="5" class="control-slider" id="speedSlider" oninput="sendSpeedSignal(this.value)">
     </div>
-    <div class="control-slider-container">
-      <h4 class="label">Shift</h4>
-      <input type="range" min="0" max="1" value="0" class="control-slider" id="shiftSlider" oninput="sendShiftSignal(this.value)">
-    </div>
   </div>
   <div class="container">
     <div class="row">
@@ -226,15 +222,6 @@ const char controlPage[] PROGMEM = R"=====(
           'Content-Type': 'text/plain',
         },
         body: speed.toString()
-      });
-    }
-    function sendShiftSignal(shift) {
-      fetch('/controlShift', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain',
-        },
-        body: shift.toString()
       });
     }
     function toggleMode() {
