@@ -1,7 +1,12 @@
+#include <ArduinoJson.h>
+
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+
+#include <WebSocketsServer_Generic.h>
+#include <Hash.h>
 
 #include "secrets.h"
 #include "website.h"
@@ -21,7 +26,10 @@ const byte udsTriggerLeft = 15;
 const byte udsEchoRight = 3;
 const byte udsTriggerRight = 1;
 
+const byte sunlightAO = 17;
+
 int wheelSpeed = 255;
+int currentSpeed = 127;
 byte shift = 0;
 
 const byte maxDistance = 50;
@@ -33,11 +41,11 @@ byte forwardControlVal = 0;
 byte backwardControlVal = 0;
 
 ESP8266WebServer server(80);
+WebSocketsServer webSocket = WebSocketsServer(81);
 
 void setup(void) {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
-  Serial.println("");
 
   pinMode(forwardLeftWheel, OUTPUT);
   pinMode(forwardRightWheel, OUTPUT);
@@ -52,18 +60,16 @@ void setup(void) {
   pinMode(udsEchoRight, INPUT);
   pinMode(udsTriggerRight, OUTPUT);
 
+  pinMode(sunlightAO, INPUT);
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
-    Serial.print(".");
   }
 
-  Serial.println("");
-  Serial.print("[Rover] Connected to ");
-  Serial.println(ssid);
-  Serial.print("[Rover] IP address: ");
-  Serial.println(WiFi.localIP());
+  addMessage("Connected to " + String(ssid));
+  addMessage("IP address: " + WiFi.localIP().toString());
 
-  if (MDNS.begin("esp8266")) { Serial.println("[Rover] MDNS is on."); }
+  if (MDNS.begin("esp8266-rover")) { addMessage("MDNS started."); }
 
   server.on("/", handleRoot);
   server.on("/controlLeft", handleLeft);
@@ -76,13 +82,18 @@ void setup(void) {
   server.on("/setDelay", handleDelay);
   server.on("/get/distance", getDistance);
   server.on("/get/delay", getDelay);
+  server.on("/refreshLogs", handleRefreshLogs);
 
   server.begin();
-  Serial.println("[Rover] HTTP sever is on.");
+  addMessage("HTTP server started.");
+  webSocket.begin();
+  addMessage("Web socket server started.");
+  digitalWrite(wheelSpeedSignal, currentSpeed);
 }
 
-void loop(void) {
+void loop() {
   server.handleClient();
+  webSocket.loop();
   mode ? handleAutomaticMode() : handleControls();
 }
 
@@ -92,26 +103,43 @@ void handleAutomaticMode() {
   float midDistance = measureMidDistance();
   float leftDistance = measureLeftDistance();
   float rightDistance = measureRightDistance();
-  Serial.printf("[Rover] Left: %f\n", leftDistance);
-  Serial.printf("[Rover] Right: %f\n", rightDistance);
-  Serial.printf("[Rover] Mid: %f\n", midDistance);
-  if (midDistance < avoidDistance) {
-    Serial.printf("[Rover] Distance: %d\n", avoidDistance);
-    forward(0, 0);
-    delay(actionDelay);
-    if (leftDistance > rightDistance) {
-      forward(0, 1);
-      backward(1, 0);
-    } else {
-      forward(1, 0);
-      backward(0, 1);
-    }
-    delay(actionDelay);
-    backward(0, 0);
-    forward(0, 0);
-    delay(actionDelay);
+  int lightIntensity = measureLightIntensity();
+
+  addSensorData("Left distance: " + String(leftDistance) + "cm");
+  addSensorData("Mid distance: " + String(midDistance) + "cm");
+  addSensorData("Right distance: " + String(rightDistance) + "cm");
+  addSensorData("Light intensity: " + String(lightIntensity));
+  broadcastSensorData();
+  
+  if (lightIntensity < 1023) {
+    determineDirection(leftDistance, rightDistance);
+  } else {
+    if (midDistance < avoidDistance) {
+    determineDirection(leftDistance, rightDistance);
   }
   forward(1, 1);
+  }
+}
+
+void determineDirection(int leftDistance, int rightDistance) {
+  forward(0, 0);
+  delay(actionDelay);
+  if (leftDistance > rightDistance) {
+    forward(0, 1);
+    backward(1, 0);
+  } else {
+    forward(1, 0);
+    backward(0, 1);
+  }
+  delay(actionDelay);
+  backward(0, 0);
+  forward(0, 0);
+  delay(actionDelay);
+}
+
+int measureLightIntensity() {
+  int lightIntensity = analogRead(sunlightAO);
+  return lightIntensity;
 }
 
 float measureMidDistance() {
@@ -201,34 +229,32 @@ void handleRoot() {
 
 void handleLeft() {
   byte signal = (byte)server.arg("plain").toInt();
-  Serial.printf("[Rover] Left set to: %d\n", signal);
   if (!mode) leftControlVal = signal;
   server.send(200, "text/plain", "Success");
 }
 void handleRight() {
   byte signal = (byte)server.arg("plain").toInt();
-  Serial.printf("[Rover] Right set to: %d\n", signal);
   if (!mode) rightControlVal = signal;
   server.send(200, "text/plain", "Success");
 }
 void handleForward() {
   byte signal = (byte)server.arg("plain").toInt();
-  Serial.printf("[Rover] Forward set to: %d\n", signal);
   if (!mode) forwardControlVal = signal;
   server.send(200, "text/plain", "Success");
 }
 void handleBackward() {
   byte signal = (byte)server.arg("plain").toInt();
-  Serial.printf("[Rover] Backward set to: %d\n", signal);
   if (!mode) backwardControlVal = signal;
   server.send(200, "text/plain", "Success");
 }
 
 void handleSpeed() {
   float speedPercent = (float)server.arg("plain").toInt() / 10.0;
-  int currentSpeed = speedPercent * wheelSpeed;
-  Serial.printf("[Rover] Speed set to: %d\n", currentSpeed);
+  currentSpeed = speedPercent * wheelSpeed;
   analogWrite(wheelSpeedSignal, currentSpeed);
+  addMessage("Current speed: " + String(currentSpeed) + ".");
+  broadcastLogs();
+  broadcastVariables();
   server.send(200, "text/plain", "Success");
 }
 
@@ -239,22 +265,34 @@ void handleMode() {
   backwardControlVal = 0;
   leftControlVal = 0;
   rightControlVal = 0;
-  String text = mode ? "[Rover] Set to automatic mode." : "[Rover] set to manual mode.";
-  Serial.println(text);
+  String text = mode ? "Automatic mode." : "Manual mode.";
+  addMessage(text);
+  broadcastLogs();
+  broadcastVariables();
   server.send(200, "text/plain", "success");
 }
 
 void handleDistance() {
   int distance = server.arg("plain").toInt();
   avoidDistance = distance;
-  Serial.printf("[Rover] Obstacle distance set to: %d\n", distance);
+  addMessage("Avoidance set to: " + String(distance) + "cm.");
+  broadcastLogs();
+  broadcastVariables();
   server.send(200, "text/plain", "success");
 }
 
 void handleDelay() {
   int delay = server.arg("plain").toInt();
   actionDelay = delay;
-  Serial.printf("[Rover] Action delay set to: %d\n", delay);
+  addMessage("Action delay set to: " + String(delay) + "ms.");
+  broadcastLogs();
+  broadcastVariables();
+  server.send(200, "text/plain", "success");
+}
+
+void handleRefreshLogs() {
+  broadcastLogs();
+  broadcastVariables();
   server.send(200, "text/plain", "success");
 }
 
@@ -264,4 +302,70 @@ void getDistance() {
 
 void getDelay() {
   server.send(200, "text/plain", String(actionDelay));
+}
+
+const int maxMessages = 5;
+String messages[maxMessages];
+int messageCount = 0;
+
+void addMessage(const String& message) {
+  if (messageCount < maxMessages) {
+    messages[messageCount++] = message;
+  } else {
+    for (int i = 0; i < maxMessages - 1; i++) {
+      messages[i] = messages[i + 1];
+    }
+    messages[maxMessages - 1] = message;
+  }
+}
+
+void broadcastLogs() {
+  DynamicJsonDocument doc(1024);
+  JsonArray array = doc.createNestedArray("logs");
+  for (int i = 0; i < messageCount; i++) {
+    array.add(messages[i]);
+  }
+  String response;
+  serializeJson(doc, response);
+  webSocket.broadcastTXT(response);
+}
+
+const int maxSensorData = 4;
+String sensorData[maxSensorData];
+int dataCount = 0;
+
+void addSensorData(const String& data) {
+  if (dataCount < maxSensorData) {
+    sensorData[dataCount++] = data;
+  } else {
+    for (int i = 0; i < maxSensorData - 1; i++) {
+      sensorData[i] = sensorData[i + 1];
+    }
+    sensorData[maxSensorData - 1] = data;
+  }
+}
+
+void broadcastSensorData() {
+  DynamicJsonDocument doc(1024);
+  JsonArray array = doc.createNestedArray("sensors");
+  for (int i = 0; i < messageCount; i++) {
+    array.add(sensorData[i]);
+  }
+  String response;
+  serializeJson(doc, response);
+  webSocket.broadcastTXT(response);
+}
+
+void broadcastVariables() {
+  DynamicJsonDocument doc(1024);
+  JsonArray array = doc.createNestedArray("variables");
+  array.add(avoidDistance);
+  array.add(actionDelay);
+  float speed = currentSpeed / 255.0;
+  array.add(speed);
+  array.add(mode);
+
+  String response;
+  serializeJson(doc, response);
+  webSocket.broadcastTXT(response);
 }
