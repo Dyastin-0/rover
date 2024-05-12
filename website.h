@@ -5,12 +5,17 @@ const char controlPage[] PROGMEM = R"=====(
      <title>Controller</title>
      <meta name="viewport" content="width=device-width, initial-scale=1.0">
      <style>
+      :root {
+        --bg: rgb(50, 50, 50);
+        --bg2: rgb(35, 35, 35);
+        --text: rgb(220, 220, 220);
+      }
        * {
          padding: 0;
          margin: 0;
        }
        html, body {
-         background-color: #222;
+         background-color: rgb(25, 25, 25);
          font-family: Arial, sans-serif;
          width: calc(100%);
          height: calc(100%);
@@ -47,14 +52,14 @@ const char controlPage[] PROGMEM = R"=====(
        .controller button {
          width: 50px;
          height: 50px;
-         background-color: #66c3ff;
+         background-color: var(--bg);
          border: none;
          border-radius: 50%;
-         color: #fff;
+         color: var(--text);
          outline: none;
        }
        .controller button:hover {
-         background-color: #aad4ff;
+         cursor: pointer;
        }
        #forwardBtn {
          grid-column: 2;
@@ -80,7 +85,7 @@ const char controlPage[] PROGMEM = R"=====(
          appearance: none;
          width: 100%;
          height: 9px;
-         background-color: #66c3ff;
+         background-color: var(--bg);
          border-radius: 10px;
          outline: none;
          opacity: 0.7;
@@ -91,7 +96,7 @@ const char controlPage[] PROGMEM = R"=====(
          appearance: none;
          width: 25px;
          height: 25px;
-         background: #fff;
+         background: var(--text);
          border-radius: 50%;
          cursor: pointer;
        }
@@ -119,7 +124,7 @@ const char controlPage[] PROGMEM = R"=====(
          left: 0;
          right: 0;
          bottom: 0;
-         background-color: #66c3ff;
+         background-color: var(--bg);
          transition: .4s;
          border-radius: 34px;
        }
@@ -130,12 +135,12 @@ const char controlPage[] PROGMEM = R"=====(
          width: 26px;
          left: 4px;
          bottom: 4px;
-         background-color: white;
+         background-color: var(--bg2);
          transition: .4s;
          border-radius: 50%;
        }
        input:checked + .slider {
-         background-color: #66c3ff;
+         background-color: var(--bg);
        }
        input:checked + .slider:before {
          transform: translateX(26px);
@@ -147,11 +152,11 @@ const char controlPage[] PROGMEM = R"=====(
          border-radius: 50%;
        }
        span {
-         color: #fff;
+         color: var(--text);
        }
        h2, h5, h3 {
          text-align: center;
-         color: #fff;
+         color: var(--text);
        }
        h5.left {
         text-align: left;
@@ -182,13 +187,13 @@ const char controlPage[] PROGMEM = R"=====(
          width: 70px;
        }
        .button {
-         padding: 6px;
+         padding: 9px;
          border: none;
          outline: none;
          border-radius: 9px;
          font-size: 14px;
-         background-color: #66c3ff;
-         color: #fff;
+         background-color: var(--bg);
+         color: var(--text);
        }
        .messages {
          display: flex;
@@ -198,13 +203,13 @@ const char controlPage[] PROGMEM = R"=====(
          width: 174px;
          height: fit-content;
          border-radius: 9px;
-         background-color: #66c3ff;
+         background-color: var(--bg);
        }
        .logs {
          height: fit-content;
          width: 100%;
          border-radius: 9px;
-         color: #fff;
+         color: var(--text);
          font-size: 14px;
        }
        .column {
