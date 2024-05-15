@@ -1,32 +1,35 @@
 #include <ArduinoJson.h>
 
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <WiFiClient.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
 
 #include <WebSocketsServer_Generic.h>
-#include <Hash.h>
 
 #include "secrets.h"
 #include "website.h"
 
-const byte forwardRightWheel = 16;
-const byte backwardRightWheel = 5;
-const byte backwardLeftWheel = 4;
-const byte forwardLeftWheel = 0;
-const byte wheelSpeedSignal = 2;
+const byte forwardRightWheel = 18;
+const byte backwardRightWheel = 19;
+const byte rightWheelSpeedSignal = 21;
 
-const byte udsEchoMid = 14;
-const byte udsTriggerMid = 12;
+const byte backwardLeftWheel = 5;
+const byte forwardLeftWheel = 17;
+const byte leftWheelSpeedSignal = 16;
 
-const byte udsEchoLeft = 13;
-const byte udsTriggerLeft = 15;
+const byte builtInLED = 2;
 
-const byte udsEchoRight = 3;
-const byte udsTriggerRight = 1;
+// const byte udsEchoMid = 14;
+// const byte udsTriggerMid = 12;
 
-const byte sunlightAO = 17;
+// const byte udsEchoLeft = 13; 
+// const byte udsTriggerLeft = 15;
+
+// const byte udsEchoRight = 3;
+// const byte udsTriggerRight = 1;
+
+// const byte sunlightAO = 17;
 
 int wheelSpeed = 255;
 int currentSpeed = 127;
@@ -40,7 +43,7 @@ byte rightControlVal = 0;
 byte forwardControlVal = 0;
 byte backwardControlVal = 0;
 
-ESP8266WebServer server(80);
+WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
 
 void setup(void) {
@@ -51,44 +54,55 @@ void setup(void) {
   pinMode(forwardRightWheel, OUTPUT);
   pinMode(backwardLeftWheel, OUTPUT);
   pinMode(backwardRightWheel, OUTPUT);
-  pinMode(wheelSpeedSignal, OUTPUT);
+  pinMode(leftWheelSpeedSignal, OUTPUT);
+  pinMode(rightWheelSpeedSignal, OUTPUT);
 
-  pinMode(udsEchoMid, INPUT);
-  pinMode(udsTriggerMid, OUTPUT);
-  pinMode(udsEchoLeft, INPUT);
-  pinMode(udsTriggerLeft, OUTPUT);
-  pinMode(udsEchoRight, INPUT);
-  pinMode(udsTriggerRight, OUTPUT);
+  pinMode(builtInLED, OUTPUT);
+  digitalWrite(builtInLED, 0);
 
-  pinMode(sunlightAO, INPUT);
+  // pinMode(udsEchoMid, INPUT);
+  // pinMode(udsTriggerMid, OUTPUT);
+  // pinMode(udsEchoLeft, INPUT);
+  // pinMode(udsTriggerLeft, OUTPUT);
+  // pinMode(udsEchoRight, INPUT);
+  // pinMode(udsTriggerRight, OUTPUT);
+
+  // pinMode(sunlightAO, INPUT);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
   }
 
+  digitalWrite(builtInLED, 1);
   addMessage("Connected to " + String(ssid));
-  addMessage("IP address: " + WiFi.localIP().toString());
+  Serial.println(WiFi.localIP());
 
-  if (MDNS.begin("esp8266-rover")) { addMessage("MDNS started."); }
+  MDNS.begin("esp32rover");
 
   server.on("/", handleRoot);
   server.on("/controlLeft", handleLeft);
   server.on("/controlRight", handleRight);
   server.on("/controlForward", handleForward);
   server.on("/controlBackward", handleBackward);
+  server.on("/controlForwardLeft", handleForwardLeft);
+  server.on("/controlForwardRight", handleForwardRight);
+  server.on("/controlBackwardLeft", handleBackwardLeft);
+  server.on("/controlBackwardRight", handleBackwardRight);
+  server.on("/controlSpinLeft", handleSpinLeft);
+  server.on("/controlSpinRight", handleSpinRight);
   server.on("/controlSpeed", handleSpeed);
   server.on("/controlMode", handleMode);
   server.on("/setDistance", handleDistance);
   server.on("/setDelay", handleDelay);
   server.on("/get/distance", getDistance);
   server.on("/get/delay", getDelay);
-  server.on("/refreshLogs", handleRefreshLogs);
 
   server.begin();
-  addMessage("HTTP server started.");
   webSocket.begin();
-  addMessage("Web socket server started.");
-  digitalWrite(wheelSpeedSignal, currentSpeed);
+  webSocket.onEvent(webSocketEvent);
+  addMessage("MDNS, web socket, & web server started.");
+  digitalWrite(leftWheelSpeedSignal, currentSpeed);
+  digitalWrite(rightWheelSpeedSignal, currentSpeed);
 }
 
 void loop() {
@@ -100,25 +114,25 @@ void loop() {
 int avoidDistance = 30;
 int actionDelay = 400;
 void handleAutomaticMode() {
-  float midDistance = measureMidDistance();
-  float leftDistance = measureLeftDistance();
-  float rightDistance = measureRightDistance();
-  int lightIntensity = measureLightIntensity();
+  // float midDistance = measureDistance(udsTriggerMid, udsEchoMid);
+  // float leftDistance = measureDistance(udsTriggerLeft, udsEchoLeft);
+  // float rightDistance = measureDistance(udsTriggerRight, udsEchoRight);
+  // int lightIntensity = measureLightIntensity(sunlightAO);
 
-  addSensorData("Left distance: " + String(leftDistance) + "cm");
-  addSensorData("Mid distance: " + String(midDistance) + "cm");
-  addSensorData("Right distance: " + String(rightDistance) + "cm");
-  addSensorData("Light intensity: " + String(lightIntensity));
-  broadcastSensorData();
+  // addSensorData("Left distance: " + String(leftDistance) + "cm");
+  // addSensorData("Mid distance: " + String(midDistance) + "cm");
+  // addSensorData("Right distance: " + String(rightDistance) + "cm");
+  // addSensorData("Light intensity: " + String(lightIntensity));
+  // broadcastSensorData();
   
-  if (lightIntensity < 1023) {
-    determineDirection(leftDistance, rightDistance);
-  } else {
-    if (midDistance < avoidDistance) {
-    determineDirection(leftDistance, rightDistance);
-  }
-  forward(1, 1);
-  }
+  // if (lightIntensity < 1023) {
+  //   determineDirection(leftDistance, rightDistance);
+  // } else {
+  //   if (midDistance < avoidDistance) {
+  //   determineDirection(leftDistance, rightDistance);
+  // }
+  // forward(1, 1);
+  // }
 }
 
 void determineDirection(int leftDistance, int rightDistance) {
@@ -137,40 +151,18 @@ void determineDirection(int leftDistance, int rightDistance) {
   delay(actionDelay);
 }
 
-int measureLightIntensity() {
-  int lightIntensity = analogRead(sunlightAO);
+int measureLightIntensity(byte aoPin) {
+  int lightIntensity = analogRead(aoPin);
   return lightIntensity;
 }
 
-float measureMidDistance() {
-  digitalWrite(udsTriggerMid, LOW);
+float measureDistance(byte triggerPin, byte echoPin) {
+  digitalWrite(triggerPin, LOW);
   delayMicroseconds(2);
-  digitalWrite(udsTriggerMid, HIGH);
+  digitalWrite(triggerPin, HIGH);
   delayMicroseconds(10);
-  digitalWrite(udsTriggerMid, LOW);
-  long duration = pulseIn(udsEchoMid, HIGH);
-  float distance = duration * 0.034 / 2;
-  return distance;
-}
-
-float measureLeftDistance() {
-  digitalWrite(udsTriggerLeft, LOW);
-  delayMicroseconds(2);
-  digitalWrite(udsTriggerLeft, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(udsTriggerLeft, LOW);
-  long duration = pulseIn(udsEchoLeft, HIGH);
-  float distance = duration * 0.034 / 2;
-  return distance;
-}
-
-float measureRightDistance() {
-  digitalWrite(udsTriggerRight, LOW);
-  delayMicroseconds(2);
-  digitalWrite(udsTriggerRight, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(udsTriggerRight, LOW);
-  long duration = pulseIn(udsEchoRight, HIGH);
+  digitalWrite(triggerPin, LOW);
+  long duration = pulseIn(echoPin, HIGH);
   float distance = duration * 0.034 / 2;
   return distance;
 }
@@ -230,29 +222,112 @@ void handleRoot() {
 void handleLeft() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) leftControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved leftward.");
+    broadcastLogs();
+  }
   server.send(200, "text/plain", "Success");
 }
 void handleRight() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) rightControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved rightward.");
+    broadcastLogs();
+  }
   server.send(200, "text/plain", "Success");
 }
 void handleForward() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) forwardControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved forward.");
+    broadcastLogs();
+  }
   server.send(200, "text/plain", "Success");
 }
 void handleBackward() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) backwardControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved backward.");
+    broadcastLogs();
+  }
+  server.send(200, "text/plain", "Success");
+}
+
+byte forwardLeftControlVal = 0;
+void handleForwardLeft() {
+  byte signal = (byte)server.arg("plain").toInt();
+  if (!mode) forwardLeftControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved forwardleft.");
+    broadcastLogs();
+  }
+  server.send(200, "text/plain", "Success");
+}
+
+byte forwardRightControlVal = 0;
+void handleForwardRight() {
+  byte signal = (byte)server.arg("plain").toInt();
+  if (!mode) forwardRightControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved forwardright.");
+    broadcastLogs();
+  }
+  server.send(200, "text/plain", "Success");
+}
+
+byte backwardLeftControlVal = 0;
+void handleBackwardLeft() {
+  byte signal = (byte)server.arg("plain").toInt();
+  if (!mode) backwardLeftControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved backwardleft.");
+    broadcastLogs();
+  }
+  server.send(200, "text/plain", "Success");
+}
+
+byte backwardRightControlVal = 0;
+void handleBackwardRight() {
+  byte signal = (byte)server.arg("plain").toInt();
+  if (!mode) backwardRightControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Moved backwardright.");
+    broadcastLogs();
+  }
+  server.send(200, "text/plain", "Success");
+}
+
+byte spinLeftControlVal = 0;
+void handleSpinLeft() {
+  byte signal = (byte)server.arg("plain").toInt();
+  if (!mode) spinLeftControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Spinned left.");
+    broadcastLogs();
+  }
+  server.send(200, "text/plain", "Success");
+}
+
+byte spinRightControlVal = 0;
+void handleSpinRight() {
+  byte signal = (byte)server.arg("plain").toInt();
+  if (!mode) spinRightControlVal = signal;
+  if (!mode && signal) {
+    addMessage("Spinned right.");
+    broadcastLogs();
+  }
   server.send(200, "text/plain", "Success");
 }
 
 void handleSpeed() {
   float speedPercent = (float)server.arg("plain").toInt() / 10.0;
   currentSpeed = speedPercent * wheelSpeed;
-  analogWrite(wheelSpeedSignal, currentSpeed);
-  addMessage("Current speed: " + String(currentSpeed) + ".");
+  digitalWrite(leftWheelSpeedSignal, currentSpeed);
+  digitalWrite(rightWheelSpeedSignal, currentSpeed);
+  addMessage("Speed: " + String(currentSpeed) + ".");
   broadcastLogs();
   broadcastVariables();
   server.send(200, "text/plain", "Success");
@@ -265,7 +340,7 @@ void handleMode() {
   backwardControlVal = 0;
   leftControlVal = 0;
   rightControlVal = 0;
-  String text = mode ? "Automatic mode." : "Manual mode.";
+  String text = mode ? "Automatic mode." : "Control mode.";
   addMessage(text);
   broadcastLogs();
   broadcastVariables();
@@ -275,7 +350,7 @@ void handleMode() {
 void handleDistance() {
   int distance = server.arg("plain").toInt();
   avoidDistance = distance;
-  addMessage("Avoidance set to: " + String(distance) + "cm.");
+  addMessage("Avoidance: " + String(distance) + " cm.");
   broadcastLogs();
   broadcastVariables();
   server.send(200, "text/plain", "success");
@@ -284,7 +359,7 @@ void handleDistance() {
 void handleDelay() {
   int delay = server.arg("plain").toInt();
   actionDelay = delay;
-  addMessage("Action delay set to: " + String(delay) + "ms.");
+  addMessage("Action delay: " + String(delay) + " ms.");
   broadcastLogs();
   broadcastVariables();
   server.send(200, "text/plain", "success");
@@ -350,7 +425,7 @@ void broadcastSensorData() {
   JsonArray array = doc.createNestedArray("sensors");
   for (int i = 0; i < messageCount; i++) {
     array.add(sensorData[i]);
-  }
+  } 
   String response;
   serializeJson(doc, response);
   webSocket.broadcastTXT(response);
@@ -368,4 +443,30 @@ void broadcastVariables() {
   String response;
   serializeJson(doc, response);
   webSocket.broadcastTXT(response);
+}
+
+void webSocketEvent(const uint8_t& num, const WStype_t& type, uint8_t * payload, const size_t& length) {
+  (void) length;
+  IPAddress ip = webSocket.remoteIP(num);
+  String ipAddress = ip.toString();
+  bool isDisconnect = strcmp(reinterpret_cast<const char*>(payload), "disconnect") == 0;
+  switch (type) {
+    case WStype_CONNECTED: {
+
+    }
+    break;
+    case WStype_TEXT:
+      if (strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0) {
+        broadcastLogs();
+        broadcastVariables();
+      }
+      if (isDisconnect) {
+        addMessage("[" + String(ipAddress) + "] disconnected from the rover.");
+        broadcastLogs();
+      }
+      if (!isDisconnect && !(strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0)) addMessage("[" + String(ipAddress) + "] " + String(reinterpret_cast<const char*>(payload)));
+      break;
+    default:
+      break;
+  }
 }

@@ -29,11 +29,13 @@ const char controlPage[] PROGMEM = R"=====(
        .container.bottom-left {
         flex-direction: column;
         justify-content: space-between;
+        align-items: center;
         padding: 18px;
        }
        .container.space-between {
         flex-direction: column;
         justify-content: space-between;
+        align-items: center;
         padding: 18px;
        }
        .container.bottom-right {
@@ -48,6 +50,7 @@ const char controlPage[] PROGMEM = R"=====(
          grid-template-rows: 1fr 1fr 1fr;
          width: fit-content;
          height: fit-content;
+         gap: 9px;
        }
        .controller button {
          width: 50px;
@@ -61,22 +64,50 @@ const char controlPage[] PROGMEM = R"=====(
        .controller button:hover {
          cursor: pointer;
        }
-       #forwardBtn {
-         grid-column: 2;
-         grid-row: 1;
-       }
-       #backwardBtn {
-         grid-column: 2;
-         grid-row: 3;
-       }
-       #leftBtn {
-         grid-column: 1;
-         grid-row: 2;
-       }
-       #rightBtn {
-         grid-column: 3;
-         grid-row: 2;
-       }
+        #forwardBtn {
+          grid-column: 3;
+          grid-row: 1;
+        }
+        #backwardBtn {
+          grid-column: 3;
+          grid-row: 3;
+        }
+        #leftBtn {
+          grid-column: 2;
+          grid-row: 2;
+        }
+        #rightBtn {
+          grid-column: 4;
+          grid-row: 2;
+        }
+        #forwardLeftBtn {
+          grid-column: 2;
+          grid-row: 1;
+        }
+        #forwardRightBtn {
+          grid-column: 4;
+          grid-row: 1;
+        }
+        #backwardLeftBtn {
+          grid-column: 2;
+          grid-row: 3;
+        }
+        #backwardRightBtn {
+          grid-column: 4;
+          grid-row: 3;
+        }
+        #spinLeftBtn {
+          grid-column: 1;
+          grid-row: 2;
+          font-weight: 900;
+          font-size: 18px;
+        }
+        #spinRightBtn {
+          grid-column: 5;
+          grid-row: 2;
+          font-weight: 900;
+          font-size: 18px;
+        }
        .control-slider-container {
          width: 200px;
        }
@@ -160,6 +191,10 @@ const char controlPage[] PROGMEM = R"=====(
        }
        h5.left {
         text-align: left;
+        font-weight: 500;
+        padding: 9px;
+        border-radius: 9px;
+        background-color: var(--bg2);
        }
        .row {
          display: flex;
@@ -170,13 +205,31 @@ const char controlPage[] PROGMEM = R"=====(
          gap: 9px;
          width: 100%;
        }
+       .row.scroll {
+        width: calc(100% - 9px);
+        padding-right: 9px;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+       }
+       .row.scroll::-webkit-scrollbar {
+        width: 9px;
+        }
+        .row.scroll::-webkit-scrollbar-track {
+          border-radius: 9px;
+        }
+        .row.scroll::-webkit-scrollbar-thumb {
+          background-color: var(--bg2);
+          border-radius: 9px;
+        }
        .row.fit {
         width: fit-content;
        }
        .row.left {
         gap: 5px;
-        padding-top: 5;
+        padding-top: 9px;
         align-items: flex-start;
+        overflow-y: auto;
+        scroll-behavior: smooth;
        }
        .input {
          border: none;
@@ -201,16 +254,8 @@ const char controlPage[] PROGMEM = R"=====(
          align-items: center;
          flex-direction: column;
          width: 174px;
-         height: fit-content;
          border-radius: 9px;
          background-color: var(--bg);
-       }
-       .logs {
-         height: fit-content;
-         width: 100%;
-         border-radius: 9px;
-         color: var(--text);
-         font-size: 14px;
        }
        .column {
         display: flex;
@@ -245,10 +290,56 @@ const char controlPage[] PROGMEM = R"=====(
         </div>
       </div>
       <div class="controller">
-        <button id="forwardBtn" ontouchstart="sendControlSignal('Forward', 1)" ontouchend="sendControlSignal('Forward', 0)" onmousedown="sendControlSignal('Forward', 1)" onmouseup="sendControlSignal('Forward', 0)">&#9650;</button>
-        <button id="leftBtn" ontouchstart="sendControlSignal('Left', 1)" ontouchend="sendControlSignal('Left', 0)" onmousedown="sendControlSignal('Left', 1)" onmouseup="sendControlSignal('Left', 0)">&#9664;</button>
-        <button id="rightBtn" ontouchstart="sendControlSignal('Right', 1)" ontouchend="sendControlSignal('Right', 0)" onmousedown="sendControlSignal('Right', 1)" onmouseup="sendControlSignal('Right', 0)">&#9654;</button>
-        <button id="backwardBtn" ontouchstart="sendControlSignal('Backward', 1)" ontouchend="sendControlSignal('Backward', 0)" onmousedown="sendControlSignal('Backward', 1)" onmouseup="sendControlSignal('Backward', 0)">&#9660;</button>
+        <button id="forwardBtn"
+          ontouchstart="sendControlSignal('Forward', 1)"
+          ontouchend="sendControlSignal('Forward', 0)">
+          &#9650;
+          </button>
+        <button id="leftBtn"
+          ontouchstart="sendControlSignal('Left', 1)"
+          ontouchend="sendControlSignal('Left', 0)">
+          &#9664;
+        </button>
+        <button id="rightBtn"
+          ontouchstart="sendControlSignal('Right', 1)"
+          ontouchend="sendControlSignal('Right', 0)">
+          &#9654;
+        </button>
+        <button id="backwardBtn"
+          ontouchstart="sendControlSignal('Backward', 1)"
+          ontouchend="sendControlSignal('Backward', 0)" >
+          &#9660;
+        </button>
+        <button id="forwardLeftBtn"
+          ontouchstart="sendControlSignal('ForwardLeft', 1)"
+          ontouchend="sendControlSignal('ForwardLeft', 0)">
+          &#9654;
+        </button>
+        <button id="forwardRightBtn"
+          ontouchstart="sendControlSignal('ForwardRight', 1)"
+          ontouchend="sendControlSignal('ForwardRight', 0)">
+          &#9664;
+        </button>
+        <button id="backwardLeftBtn"
+          ontouchstart="sendControlSignal('BackwardLeft', 1)"
+          ontouchend="sendControlSignal('BackwardLeft', 0)">
+          &#9654;
+        </button>
+        <button id="backwardRightBtn"
+          ontouchstart="sendControlSignal('BackwardRight', 1)"
+          ontouchend="sendControlSignal('BackwardRight', 0)">
+          &#9650;
+        </button>
+        <button id="spinLeftBtn"
+        ontouchstart="sendControlSignal('SpinLeft', 1)"
+        ontouchend="sendControlSignal('SpinLeft', 0)">
+        &#x2B6F;
+      </button>
+      <button id="spinRightBtn"
+      ontouchstart="sendControlSignal('SpinRight', 1)"
+      ontouchend="sendControlSignal('SpinRight', 0)">
+      &#x2B6E;
+    </button>
       </div>
     </div>
      <div class="container space-between">
@@ -303,9 +394,6 @@ const char controlPage[] PROGMEM = R"=====(
           <h5>Logs</h5>
           <div class="row left" id="message-list"></div>
          </div>
-         <button class="button" onclick="loadLogs()">
-          Load
-         </button>
       </div>
       <div class="row fit">
         <div class="row">
@@ -317,11 +405,18 @@ const char controlPage[] PROGMEM = R"=====(
       </div>
     </div>
      <script>
-       function loadLogs() {
-        fetch('/refreshLogs', {
-          method: 'POST'
-        });
-       }
+       const socket = new WebSocket(`ws://${location.host}:81`);
+
+       const modeToggle = document.getElementById('modeToggle');
+       const modeText = document.getElementById('modeText');
+
+       const distanceText = document.getElementById('distance-select');
+       const delayText = document.getElementById('delay-select');
+       const speedControl = document.getElementById('speed-controller');
+
+       const messageList = document.getElementById('message-list');
+       const sensorDataList = document.getElementById('sensor-list');
+
        function sendControlSignal(direction, value) {
          fetch('/control' + direction, {
            method: 'POST',
@@ -340,8 +435,6 @@ const char controlPage[] PROGMEM = R"=====(
            body: speed.toString()
          });
        }
-       var modeToggle = document.getElementById('modeToggle');
-       var modeText = document.getElementById('modeText');
        function toggleMode() {
          fetch('/controlMode', {
            method: 'POST',
@@ -351,9 +444,6 @@ const char controlPage[] PROGMEM = R"=====(
            body: modeToggle.checked ? '1' : '0'
          });
        }
-       const distanceText = document.getElementById('distance-select');
-       const delayText = document.getElementById('delay-select');
-       const speedControl = document.getElementById('speed-controller');
        function setDistance() {
          var distanceSelect = document.getElementById('distance-select');
          var selectedDistance = distanceSelect.value;
@@ -376,10 +466,16 @@ const char controlPage[] PROGMEM = R"=====(
            body: selectedDelay
          });
        }
-       const messageList = document.getElementById('message-list');
-       const sensorDataList = document.getElementById('sensor-list');
        function listenToChanges() {
-          const socket = new WebSocket(`ws://${location.host}:81`);
+          socket.onopen = () => {
+            const deviceInfo = getDeviceInfo();
+            console.log("Device Type: " + deviceInfo.device);
+            console.log("Operating System: " + deviceInfo.os);
+            console.log("Browser: " + deviceInfo.browser);
+            const clientMessage = `Connected from ${deviceInfo.browser}, ${deviceInfo.os} ${deviceInfo.device}.`;
+            socket.send(clientMessage);
+            socket.send("broadcast_request");
+          }
           socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if ("sensors" in data) {
@@ -394,15 +490,14 @@ const char controlPage[] PROGMEM = R"=====(
             if ("logs" in data) {
               messageList.innerHTML = '';
               data.logs.forEach((item, index) => {
-                const messageContainer = document.createElement('h5');
-                messageContainer.classList.add('left');
-                messageContainer.textContent = item;
-                messageList.append(messageContainer);
+                const log = document.createElement('h5');
+                log.classList.add('left');
+                log.textContent = item;
+                messageList.append(log);
               });
             }
             if ("variables" in data) {
               const variables = data.variables;
-              console.log(variables);
               distanceText.value = variables[0];
               delayText.value = variables[1];
               speedControl.value = parseFloat(variables[2]).toFixed(1) * 10;
@@ -415,7 +510,70 @@ const char controlPage[] PROGMEM = R"=====(
               }
             }
           }
-       }
+          }
+          function getDeviceInfo() {
+          const ua = navigator.userAgent;
+          let deviceInfo = {
+              device: "Unknown",
+              os: "Unknown",
+              browser: "Unknown"
+          };
+
+          // Detecting Device
+          if (/mobile/i.test(ua)) {
+              deviceInfo.device = "Mobile";
+          } else if (/tablet/i.test(ua)) {
+              deviceInfo.device = "Tablet";
+          } else if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
+              deviceInfo.device = "iOS Device";
+          } else if (/android/i.test(ua)) {
+              deviceInfo.device = "Android Device";
+          } else {
+              deviceInfo.device = "Desktop";
+          }
+
+          // Detecting OS
+          if (/Windows NT 10.0/i.test(ua)) {
+              deviceInfo.os = "Windows";
+          } else if (/Windows NT 6.3/i.test(ua)) {
+              deviceInfo.os = "Windows";
+          } else if (/Windows NT 6.2/i.test(ua)) {
+              deviceInfo.os = "Windows";
+          } else if (/Windows NT 6.1/i.test(ua)) {
+              deviceInfo.os = "Windows";
+          } else if (/Mac OS X 10[._]\d+/i.test(ua)) {
+              deviceInfo.os = "Mac";
+          } else if (/Android/i.test(ua)) {
+              deviceInfo.os = "Android";
+          } else if (/iP(hone|od|ad)/i.test(ua)) {
+              deviceInfo.os = "iOS";
+          } else if (/Linux/i.test(ua)) {
+              deviceInfo.os = "Linux";
+          }
+
+          // Detecting Browser
+          if (/edg/i.test(ua)) {
+              deviceInfo.browser = "Microsoft Edge";
+          } else if (/chrome|crios|crmo/i.test(ua) && !/edg/i.test(ua)) {
+              deviceInfo.browser = "Chrome";
+          } else if (/firefox|fxios/i.test(ua)) {
+              deviceInfo.browser = "Firefox";
+          } else if (/safari/i.test(ua) && !/chrome|crios|crmo/i.test(ua) && !/edg/i.test(ua)) {
+              deviceInfo.browser = "Safari";
+          } else if (/opr|opera/i.test(ua)) {
+              deviceInfo.browser = "Opera";
+          } else if (/msie|trident/i.test(ua)) {
+              deviceInfo.browser = "Internet Explorer";
+          }
+          console.log(ua);
+          return deviceInfo;
+      }
+       window.addEventListener('beforeunload', function (e) {
+        e.preventDefault();
+        e.returnValue = '';
+        socket.send("disconnect");
+        socket.close();
+       });
        listenToChanges();
      </script>
    </body>
