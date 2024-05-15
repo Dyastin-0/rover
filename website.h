@@ -330,15 +330,15 @@ const char controlPage[] PROGMEM = R"=====(
           ontouchend="sendControlSignal('BackwardRight', 0)">
           &#9650;
         </button>
-        <button id="spinLeftBtn"
+      <button id="spinLeftBtn"
         ontouchstart="sendControlSignal('SpinLeft', 1)"
         ontouchend="sendControlSignal('SpinLeft', 0)">
-        &#x2B6F;
+        &#x21BA;
       </button>
       <button id="spinRightBtn"
       ontouchstart="sendControlSignal('SpinRight', 1)"
       ontouchend="sendControlSignal('SpinRight', 0)">
-      &#x2B6E;
+      &#x21BB;
     </button>
       </div>
     </div>
@@ -469,9 +469,6 @@ const char controlPage[] PROGMEM = R"=====(
        function listenToChanges() {
           socket.onopen = () => {
             const deviceInfo = getDeviceInfo();
-            console.log("Device Type: " + deviceInfo.device);
-            console.log("Operating System: " + deviceInfo.os);
-            console.log("Browser: " + deviceInfo.browser);
             const clientMessage = `Connected from ${deviceInfo.browser}, ${deviceInfo.os} ${deviceInfo.device}.`;
             socket.send(clientMessage);
             socket.send("broadcast_request");

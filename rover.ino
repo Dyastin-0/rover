@@ -20,16 +20,16 @@ const byte leftWheelSpeedSignal = 16;
 
 const byte builtInLED = 2;
 
-// const byte udsEchoMid = 14;
-// const byte udsTriggerMid = 12;
+const byte udsEchoLeft = 13; 
+const byte udsTriggerLeft = 12;
 
-// const byte udsEchoLeft = 13; 
-// const byte udsTriggerLeft = 15;
+const byte udsEchoMid = 14;
+const byte udsTriggerMid = 27;
 
-// const byte udsEchoRight = 3;
-// const byte udsTriggerRight = 1;
+const byte udsEchoRight = 26;
+const byte udsTriggerRight = 25;
 
-// const byte sunlightAO = 17;
+const byte sunlightAO = 33;
 
 int wheelSpeed = 255;
 int currentSpeed = 127;
@@ -60,14 +60,14 @@ void setup(void) {
   pinMode(builtInLED, OUTPUT);
   digitalWrite(builtInLED, 0);
 
-  // pinMode(udsEchoMid, INPUT);
-  // pinMode(udsTriggerMid, OUTPUT);
-  // pinMode(udsEchoLeft, INPUT);
-  // pinMode(udsTriggerLeft, OUTPUT);
-  // pinMode(udsEchoRight, INPUT);
-  // pinMode(udsTriggerRight, OUTPUT);
+  pinMode(udsEchoMid, INPUT);
+  pinMode(udsTriggerMid, OUTPUT);
+  pinMode(udsEchoLeft, INPUT);
+  pinMode(udsTriggerLeft, OUTPUT);
+  pinMode(udsEchoRight, INPUT);
+  pinMode(udsTriggerRight, OUTPUT);
 
-  // pinMode(sunlightAO, INPUT);
+  pinMode(sunlightAO, INPUT);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -114,25 +114,25 @@ void loop() {
 int avoidDistance = 30;
 int actionDelay = 400;
 void handleAutomaticMode() {
-  // float midDistance = measureDistance(udsTriggerMid, udsEchoMid);
-  // float leftDistance = measureDistance(udsTriggerLeft, udsEchoLeft);
-  // float rightDistance = measureDistance(udsTriggerRight, udsEchoRight);
-  // int lightIntensity = measureLightIntensity(sunlightAO);
+  float midDistance = measureDistance(udsTriggerMid, udsEchoMid);
+  float leftDistance = measureDistance(udsTriggerLeft, udsEchoLeft);
+  float rightDistance = measureDistance(udsTriggerRight, udsEchoRight);
+  int lightIntensity = measureLightIntensity(sunlightAO);
 
-  // addSensorData("Left distance: " + String(leftDistance) + "cm");
-  // addSensorData("Mid distance: " + String(midDistance) + "cm");
-  // addSensorData("Right distance: " + String(rightDistance) + "cm");
-  // addSensorData("Light intensity: " + String(lightIntensity));
-  // broadcastSensorData();
+  addSensorData("Left distance: " + String(leftDistance) + "cm");
+  addSensorData("Mid distance: " + String(midDistance) + "cm");
+  addSensorData("Right distance: " + String(rightDistance) + "cm");
+  addSensorData("Light intensity: " + String(lightIntensity));
+  broadcastSensorData();
   
-  // if (lightIntensity < 1023) {
-  //   determineDirection(leftDistance, rightDistance);
-  // } else {
-  //   if (midDistance < avoidDistance) {
-  //   determineDirection(leftDistance, rightDistance);
-  // }
-  // forward(1, 1);
-  // }
+  if (lightIntensity < 1023) {
+    determineDirection(leftDistance, rightDistance);
+  } else {
+    if (midDistance < avoidDistance) {
+    determineDirection(leftDistance, rightDistance);
+  }
+  forward(1, 1);
+  }
 }
 
 void determineDirection(int leftDistance, int rightDistance) {
@@ -423,7 +423,7 @@ void addSensorData(const String& data) {
 void broadcastSensorData() {
   DynamicJsonDocument doc(1024);
   JsonArray array = doc.createNestedArray("sensors");
-  for (int i = 0; i < messageCount; i++) {
+  for (int i = 0; i < dataCount; i++) {
     array.add(sensorData[i]);
   } 
   String response;
