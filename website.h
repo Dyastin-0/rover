@@ -267,10 +267,6 @@ const char controlPage[] PROGMEM = R"=====(
         html, body {
           flex-direction: column;
         }
-        .container.bottom-left {
-          order: 2;
-          justify-content: center;
-        }
         .container.bottom-right {
           order: 3;
           align-items: center;
@@ -562,14 +558,16 @@ const char controlPage[] PROGMEM = R"=====(
           } else if (/msie|trident/i.test(ua)) {
               deviceInfo.browser = "Internet Explorer";
           }
-          console.log(ua);
           return deviceInfo;
       }
-       window.addEventListener('beforeunload', function (e) {
-        e.preventDefault();
-        e.returnValue = '';
-        socket.send("disconnect");
-        socket.close();
+       document.addEventListener('visibilitychange', function (e) {
+        if (document.visibilityState === 'visible') {
+          location.href = location.href;
+          console.log("TEST");
+        } else {
+          socket.send("disconnect");
+          socket.close();
+        }
        });
        listenToChanges();
      </script>

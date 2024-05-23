@@ -1,3 +1,4 @@
+#include<ArduinoQueue.h>
 #include <ArduinoJson.h>
 
 #include <WiFi.h>
@@ -9,27 +10,35 @@
 
 #include "secrets.h"
 #include "website.h"
+#include "waitingPage.h"
 
-const byte forwardRightWheel = 18;
-const byte backwardRightWheel = 19;
+const byte forwardFrontLeftWheel = 25;
+const byte backwardFrontLeftWheel = 26;
+
+const byte forwardBackLeftWheel = 32;
+const byte backwardBackLeftWheel = 33;
+
+const byte forwardBackRightWheel = 27;
+const byte backwardBackRightWheel = 14;
+
+const byte forwardFrontRightWheel = 12;
+const byte backwardFrontRightWheel = 13;
+
+const byte leftWheelSpeedSignal = 22;
 const byte rightWheelSpeedSignal = 21;
-
-const byte backwardLeftWheel = 5;
-const byte forwardLeftWheel = 17;
-const byte leftWheelSpeedSignal = 16;
 
 const byte builtInLED = 2;
 
-const byte udsEchoLeft = 13; 
-const byte udsTriggerLeft = 12;
+const byte udsEchoLeft = 5;
+const byte udsTriggerLeft = 17;
 
-const byte udsEchoMid = 14;
-const byte udsTriggerMid = 27;
+const byte udsEchoMid = 23;
+const byte udsTriggerMid = 19;
 
-const byte udsEchoRight = 26;
-const byte udsTriggerRight = 25;
+const byte udsEchoRight = 16;
+const byte udsTriggerRight = 4;
 
-const byte sunlightAO = 33;
+const byte sunlightAO = 34;
 
 int wheelSpeed = 255;
 int currentSpeed = 127;
@@ -42,6 +51,17 @@ byte leftControlVal = 0;
 byte rightControlVal = 0;
 byte forwardControlVal = 0;
 byte backwardControlVal = 0;
+byte forwardLeftControlVal = 0;
+byte forwardRightControlVal = 0;
+byte backwardLeftControlVal = 0;
+byte backwardRightControlVal = 0;
+byte spinLeftControlVal = 0;
+byte spinRightControlVal = 0;
+
+int connectedDevices = 0;
+int maxConnectedDevices = 1;
+
+ArduinoQueue<uint8_t> clientQueue(20);
 
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
@@ -50,10 +70,15 @@ void setup(void) {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
 
-  pinMode(forwardLeftWheel, OUTPUT);
-  pinMode(forwardRightWheel, OUTPUT);
-  pinMode(backwardLeftWheel, OUTPUT);
-  pinMode(backwardRightWheel, OUTPUT);
+  pinMode(forwardFrontLeftWheel, OUTPUT);
+  pinMode(backwardFrontLeftWheel, OUTPUT);
+  pinMode(forwardFrontRightWheel, OUTPUT);
+  pinMode(backwardFrontRightWheel, OUTPUT);
+  pinMode(forwardBackLeftWheel, OUTPUT);
+  pinMode(backwardBackLeftWheel, OUTPUT);
+  pinMode(forwardBackRightWheel, OUTPUT);
+  pinMode(backwardBackRightWheel, OUTPUT);
+
   pinMode(leftWheelSpeedSignal, OUTPUT);
   pinMode(rightWheelSpeedSignal, OUTPUT);
 
@@ -119,35 +144,53 @@ void handleAutomaticMode() {
   float rightDistance = measureDistance(udsTriggerRight, udsEchoRight);
   int lightIntensity = measureLightIntensity(sunlightAO);
 
-  addSensorData("Left distance: " + String(leftDistance) + "cm");
-  addSensorData("Mid distance: " + String(midDistance) + "cm");
-  addSensorData("Right distance: " + String(rightDistance) + "cm");
-  addSensorData("Light intensity: " + String(lightIntensity));
+  addSensorData("Left: " + String(leftDistance) + "cm");
+  addSensorData("Mid: " + String(midDistance) + "cm");
+  addSensorData("Right: " + String(rightDistance) + "cm");
+  addSensorData("Light: " + String(lightIntensity));
   broadcastSensorData();
   
-  if (lightIntensity < 1023) {
+  if (lightIntensity < 4095) {
     determineDirection(leftDistance, rightDistance);
   } else {
     if (midDistance < avoidDistance) {
     determineDirection(leftDistance, rightDistance);
-  }
-  forward(1, 1);
+    } else {
+      frontLeftWheels(1, 0);
+      backLeftWheels(1, 0);
+      frontRightWheels(1, 0);
+      backRightWheels(1, 0);
+    }
   }
 }
 
 void determineDirection(int leftDistance, int rightDistance) {
-  forward(0, 0);
+  frontLeftWheels(0, 1);
+  backLeftWheels(0, 1);
+  frontRightWheels(0, 1);
+  backRightWheels(0, 1);
+  delay(actionDelay);
+  frontLeftWheels(0, 0);
+  backLeftWheels(0, 0);
+  frontRightWheels(0, 0);
+  backRightWheels(0, 0);
   delay(actionDelay);
   if (leftDistance > rightDistance) {
-    forward(0, 1);
-    backward(1, 0);
+    frontLeftWheels(0, 1);
+    backLeftWheels(0, 1);
+    frontRightWheels(1, 0);
+    backRightWheels(1, 0);
   } else {
-    forward(1, 0);
-    backward(0, 1);
+    frontLeftWheels(1, 0);
+    backLeftWheels(1, 0);
+    frontRightWheels(0, 1);
+    backRightWheels(0, 1);
   }
   delay(actionDelay);
-  backward(0, 0);
-  forward(0, 0);
+  frontLeftWheels(0, 0);
+  backLeftWheels(0, 0);
+  frontRightWheels(0, 0);
+  backRightWheels(0, 0);
   delay(actionDelay);
 }
 
@@ -168,55 +211,87 @@ float measureDistance(byte triggerPin, byte echoPin) {
 }
 
 void handleControls() {
-  if (leftControlVal) {
-    forward(0 , 1);
-    backward(1, 0);
-  } else {
-    if (!forwardControlVal && !rightControlVal) {
-      forward(0, 0);
-      backward(0, 0);
-    }
-  }
-
-  if (rightControlVal) {
-    forward(1, 0);
-    backward(0, 1);
-  } else {
-    if (!forwardControlVal && !leftControlVal) {
-      forward(0, 0);
-      backward(0, 0);
-    }
-  }
-
   if (forwardControlVal) {
-    forward(1, 1);
+    frontLeftWheels(1, 0);
+    backLeftWheels(1, 0);
+    frontRightWheels(1, 0);
+    backRightWheels(1, 0);
+  } else if (backwardControlVal) {
+    frontLeftWheels(0, 1);
+    backLeftWheels(0, 1);
+    frontRightWheels(0, 1);
+    backRightWheels(0, 1);
+  } else if (leftControlVal) {
+    frontLeftWheels(0, 1);
+    backLeftWheels(1, 0);
+    frontRightWheels(1, 0);
+    backRightWheels(0, 1);
+  } else if (rightControlVal) {
+    frontLeftWheels(1, 0);
+    backLeftWheels(0, 1);
+    frontRightWheels(0, 1);
+    backRightWheels(1, 0);
+  } else if (forwardLeftControlVal) {
+    frontLeftWheels(0, 0);
+    backLeftWheels(1, 0);
+    frontRightWheels(1, 0);
+    backRightWheels(0, 0);
+  } else if (forwardRightControlVal) {
+    frontLeftWheels(1, 0);
+    backLeftWheels(0, 0);
+    frontRightWheels(0, 0);
+    backRightWheels(1, 0);
+  } else if (backwardLeftControlVal) {
+    frontLeftWheels(0, 1);
+    backLeftWheels(0, 0);
+    frontRightWheels(0, 0);
+    backRightWheels(0, 1);
+  } else if (backwardRightControlVal) { 
+    frontLeftWheels(0, 0);
+    backLeftWheels(0, 1);
+    frontRightWheels(0, 1);
+    backRightWheels(0, 0);
+  } else if (spinLeftControlVal) {
+    frontLeftWheels(0, 1);
+    backLeftWheels(0, 1);
+    frontRightWheels(1, 0);
+    backRightWheels(1, 0);
+  } else if (spinRightControlVal) {
+    frontLeftWheels(1, 0);
+    backLeftWheels(1, 0);
+    frontRightWheels(0, 1);
+    backRightWheels(0, 1);
   } else {
-    if (!leftControlVal && !rightControlVal) {
-      forward(0, 0);
-    }
-  }
-  
-  if (backwardControlVal) {
-    backward(1, 1);
-  } else {
-    if (!leftControlVal && !rightControlVal) {
-      backward(0, 0);
-    }
+    frontLeftWheels(0, 0);
+    backLeftWheels(0, 0);
+    frontRightWheels(0, 0);
+    backRightWheels(0, 0);
   }
 }
 
-void backward(byte backwardLeftWheelState, byte backwardRightWheelState) {
-  digitalWrite(backwardLeftWheel, backwardLeftWheelState);
-  digitalWrite(backwardRightWheel, backwardRightWheelState);
+void frontLeftWheels(byte forward, byte backward) {
+  digitalWrite(forwardFrontLeftWheel, forward);
+  digitalWrite(backwardFrontLeftWheel, backward);
 }
 
-void forward(byte forwardLeftWheelState, byte forwardRightWheelState) {
-  digitalWrite(forwardLeftWheel, forwardLeftWheelState);
-  digitalWrite(forwardRightWheel, forwardRightWheelState);
+void backLeftWheels(byte forward, byte backward) {
+  digitalWrite(forwardBackLeftWheel, forward);
+  digitalWrite(backwardBackLeftWheel, backward);
+}
+
+void frontRightWheels(byte forward, byte backward) {
+  digitalWrite(forwardFrontRightWheel, forward);
+  digitalWrite(backwardFrontRightWheel, backward);
+}
+
+void backRightWheels(byte forward, byte backward) {
+  digitalWrite(forwardBackRightWheel, forward);
+  digitalWrite(backwardBackRightWheel, backward);
 }
 
 void handleRoot() {
-  server.send(200, "text/html", controlPage);
+  Serial.printf("Connected: %d\n", connectedDevices);
+  !(connectedDevices == maxConnectedDevices) ? server.send(200, "text/html", controlPage) : server.send(200, "text/html", waitPage);
 }
 
 void handleLeft() {
@@ -228,6 +303,7 @@ void handleLeft() {
   }
   server.send(200, "text/plain", "Success");
 }
+
 void handleRight() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) rightControlVal = signal;
@@ -237,6 +313,7 @@ void handleRight() {
   }
   server.send(200, "text/plain", "Success");
 }
+
 void handleForward() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) forwardControlVal = signal;
@@ -246,6 +323,7 @@ void handleForward() {
   }
   server.send(200, "text/plain", "Success");
 }
+
 void handleBackward() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) backwardControlVal = signal;
@@ -256,7 +334,6 @@ void handleBackward() {
   server.send(200, "text/plain", "Success");
 }
 
-byte forwardLeftControlVal = 0;
 void handleForwardLeft() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) forwardLeftControlVal = signal;
@@ -267,7 +344,6 @@ void handleForwardLeft() {
   server.send(200, "text/plain", "Success");
 }
 
-byte forwardRightControlVal = 0;
 void handleForwardRight() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) forwardRightControlVal = signal;
@@ -278,29 +354,26 @@ void handleForwardRight() {
   server.send(200, "text/plain", "Success");
 }
 
-byte backwardLeftControlVal = 0;
 void handleBackwardLeft() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) backwardLeftControlVal = signal;
   if (!mode && signal) {
     addMessage("Moved backwardleft.");
-    broadcastLogs();
+    broadcastLogs(); 
   }
   server.send(200, "text/plain", "Success");
 }
 
-byte backwardRightControlVal = 0;
 void handleBackwardRight() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) backwardRightControlVal = signal;
   if (!mode && signal) {
     addMessage("Moved backwardright.");
-    broadcastLogs();
+    broadcastLogs();   
   }
   server.send(200, "text/plain", "Success");
 }
 
-byte spinLeftControlVal = 0;
 void handleSpinLeft() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) spinLeftControlVal = signal;
@@ -311,7 +384,6 @@ void handleSpinLeft() {
   server.send(200, "text/plain", "Success");
 }
 
-byte spinRightControlVal = 0;
 void handleSpinRight() {
   byte signal = (byte)server.arg("plain").toInt();
   if (!mode) spinRightControlVal = signal;
@@ -452,17 +524,24 @@ void webSocketEvent(const uint8_t& num, const WStype_t& type, uint8_t * payload,
   bool isDisconnect = strcmp(reinterpret_cast<const char*>(payload), "disconnect") == 0;
   switch (type) {
     case WStype_CONNECTED: {
-
+      if (connectedDevices != maxConnectedDevices) {
+        connectedDevices++;
+      } else {
+        clientQueue.enqueue(num);
+      }
     }
     break;
     case WStype_TEXT:
       if (strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0) {
         broadcastLogs();
         broadcastVariables();
-      }
+      } 
       if (isDisconnect) {
         addMessage("[" + String(ipAddress) + "] disconnected from the rover.");
+        Serial.printf("disc\n");
+        connectedDevices--;
         broadcastLogs();
+        webSocket.sendTXT(clientQueue.dequeue(), "redirect");
       }
       if (!isDisconnect && !(strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0)) addMessage("[" + String(ipAddress) + "] " + String(reinterpret_cast<const char*>(payload)));
       break;
