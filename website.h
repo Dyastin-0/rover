@@ -559,16 +559,7 @@ const char controlPage[] PROGMEM = R"=====(
               deviceInfo.browser = "Internet Explorer";
           }
           return deviceInfo;
-      }
-       document.addEventListener('visibilitychange', function (e) {
-        if (document.visibilityState === 'visible') {
-          location.href = location.href;
-          console.log("TEST");
-        } else {
-          socket.send("disconnect");
-          socket.close();
         }
-       });
        listenToChanges();
      </script>
    </body>

@@ -1,4 +1,3 @@
-#include<ArduinoQueue.h>
 #include <ArduinoJson.h>
 
 #include <WiFi.h>
@@ -10,7 +9,6 @@
 
 #include "secrets.h"
 #include "website.h"
-#include "waitingPage.h"
 
 const byte forwardFrontLeftWheel = 25;
 const byte backwardFrontLeftWheel = 26;
@@ -38,8 +36,6 @@ const byte udsTriggerMid = 19;
 const byte udsEchoRight = 16;
 const byte udsTriggerRight = 4;
 
-const byte sunlightAO = 34;
-
 int wheelSpeed = 255;
 int currentSpeed = 127;
 byte shift = 0;
@@ -57,11 +53,6 @@ byte backwardLeftControlVal = 0;
 byte backwardRightControlVal = 0;
 byte spinLeftControlVal = 0;
 byte spinRightControlVal = 0;
-
-int connectedDevices = 0;
-int maxConnectedDevices = 1;
-
-ArduinoQueue<uint8_t> clientQueue(20);
 
 WebServer server(80);
 WebSocketsServer webSocket = WebSocketsServer(81);
@@ -91,8 +82,6 @@ void setup(void) {
   pinMode(udsTriggerLeft, OUTPUT);
   pinMode(udsEchoRight, INPUT);
   pinMode(udsTriggerRight, OUTPUT);
-
-  pinMode(sunlightAO, INPUT);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -142,25 +131,19 @@ void handleAutomaticMode() {
   float midDistance = measureDistance(udsTriggerMid, udsEchoMid);
   float leftDistance = measureDistance(udsTriggerLeft, udsEchoLeft);
   float rightDistance = measureDistance(udsTriggerRight, udsEchoRight);
-  int lightIntensity = measureLightIntensity(sunlightAO);
 
   addSensorData("Left: " + String(leftDistance) + "cm");
   addSensorData("Mid: " + String(midDistance) + "cm");
   addSensorData("Right: " + String(rightDistance) + "cm");
-  addSensorData("Light: " + String(lightIntensity));
   broadcastSensorData();
-  
-  if (lightIntensity < 4095) {
-    determineDirection(leftDistance, rightDistance);
+
+  if (midDistance < avoidDistance) {
+  determineDirection(leftDistance, rightDistance);
   } else {
-    if (midDistance < avoidDistance) {
-    determineDirection(leftDistance, rightDistance);
-    } else {
-      frontLeftWheels(1, 0);
-      backLeftWheels(1, 0);
-      frontRightWheels(1, 0);
-      backRightWheels(1, 0);
-    }
+    frontLeftWheels(1, 0);
+    backLeftWheels(1, 0);
+    frontRightWheels(1, 0);
+    backRightWheels(1, 0);
   }
 }
 
@@ -192,11 +175,6 @@ void determineDirection(int leftDistance, int rightDistance) {
   frontRightWheels(0, 0);
   backRightWheels(0, 0);
   delay(actionDelay);
-}
-
-int measureLightIntensity(byte aoPin) {
-  int lightIntensity = analogRead(aoPin);
-  return lightIntensity;
 }
 
 float measureDistance(byte triggerPin, byte echoPin) {
@@ -290,8 +268,7 @@ void backRightWheels(byte forward, byte backward) {
 }
 
 void handleRoot() {
-  Serial.printf("Connected: %d\n", connectedDevices);
-  !(connectedDevices == maxConnectedDevices) ? server.send(200, "text/html", controlPage) : server.send(200, "text/html", waitPage);
+  server.send(200, "text/html", controlPage);
 }
 
 void handleLeft() {
@@ -397,6 +374,7 @@ void handleSpinRight() {
 void handleSpeed() {
   float speedPercent = (float)server.arg("plain").toInt() / 10.0;
   currentSpeed = speedPercent * wheelSpeed;
+  Serial.println(currentSpeed);
   digitalWrite(leftWheelSpeedSignal, currentSpeed);
   digitalWrite(rightWheelSpeedSignal, currentSpeed);
   addMessage("Speed: " + String(currentSpeed) + ".");
@@ -477,7 +455,7 @@ void broadcastLogs() {
   webSocket.broadcastTXT(response);
 }
 
-const int maxSensorData = 4;
+const int maxSensorData = 3;
 String sensorData[maxSensorData];
 int dataCount = 0;
 
@@ -521,31 +499,19 @@ void webSocketEvent(const uint8_t& num, const WStype_t& type, uint8_t * payload,
   (void) length;
   IPAddress ip = webSocket.remoteIP(num);
   String ipAddress = ip.toString();
-  bool isDisconnect = strcmp(reinterpret_cast<const char*>(payload), "disconnect") == 0;
   switch (type) {
-    case WStype_CONNECTED: {
-      if (connectedDevices != maxConnectedDevices) {
-        connectedDevices++;
-      } else {
-        clientQueue.enqueue(num);
-      }
-    }
-    break;
     case WStype_TEXT:
       if (strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0) {
         broadcastLogs();
         broadcastVariables();
       } 
-      if (isDisconnect) {
+      if (!(strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0)) addMessage("[" + String(ipAddress) + "] " + String(reinterpret_cast<const char*>(payload)));
+      break;
+    case WStype_DISCONNECTED: {
         addMessage("[" + String(ipAddress) + "] disconnected from the rover.");
-        Serial.printf("disc\n");
-        connectedDevices--;
-        broadcastLogs();
-        webSocket.sendTXT(clientQueue.dequeue(), "redirect");
       }
-      if (!isDisconnect && !(strcmp(reinterpret_cast<const char*>(payload), "broadcast_request") == 0)) addMessage("[" + String(ipAddress) + "] " + String(reinterpret_cast<const char*>(payload)));
-      break;
+    break;
     default:
-      break;
+    break;
   }
 }
